@@ -1,0 +1,70 @@
+* Allow switching between AABB- and ABAB-grouped multiple conformations.
+
+	Create a tool to set up multiple conformations correctly, and make sure
+	it can run in reverse. AABB<->ABAB.
+
+	How can we take advantage of code reuse when we're doing the same process in
+	reverse? Probably only in the really basic functions like is_atom() and
+	friends, not in the actual processing.
+
+* Re-order atom orders to be consistent (e.g. N-CA-C-O vs N-CA-O-C).
+
+	Design:
+
+		Read in PDB
+
+		Ignore everything but atom info, which includes:
+			MODEL, ATOM, SIGATM, ANISOU, SIGUIJ, HETATM, TER, ENDMDL
+
+			In other words, immediately write out anything before or after
+			coordinate section.
+
+		Within coordinate section, scan to end of a given residue, then reorder
+		it.
+
+			Data structure: Array of arrays
+				Primary array is one per coordinate line
+					Numbers in thousands
+				Secondary array is one per section of a coordinate line:
+					0	1-6
+					1	7-11
+					2	13-16
+					3	17
+					4	18-20
+					5	22
+					6	23-26
+					7	27
+					8	31-38
+					9	39-46
+					10	47-54
+					11	55-60
+					12	61-66
+					13	74-76
+					14	77-78
+					15	79-80
+				Total elements = 16 * ~3,000 = ~50,000
+
+			Do we want to munge multiple conformations first?
+				Doing it would simplify this script
+				Not doing it would simplify using this script in the middle of
+					work fixing multiple conformations. They are typically
+					kept grouped together while work is in progress, although
+					this is not PDB-compliant.
+
+			How to reorder? Find backbone, just reorder that section, then toss
+				the sidechain on afterwards without reordering. Backbone should
+				always be the first four atoms: N CA C O.
+
+				Find beginning of residue, so we can find the first four atoms.
+				Scan down array to find the first four atoms. There could be
+					weird cruft in the middle that we need to allow for as
+					well, like ANISOU lines. Those also need to be reordered.
+				Find N, print it, remove from options
+				Find CA, print it, remove from options
+				Find C, print it, remove from options
+				Print O, the remaining option -- sanity check for O anyway
+
+		Don't worry about sorting the sidechains, at least for now. Just spit
+			them out the same as they came in.
+
+* Add filter.sh to pre-filter by B, so we don't waste time on those atoms.
